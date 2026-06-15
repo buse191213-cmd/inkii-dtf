@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DTF-Engine — Größen-Guide</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, "Segoe UI", sans-serif; background: #f8fafc;
+    color: #0f172a; min-height: 100vh; padding: 24px 16px; }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+
+  .topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+  .logo { width: 50px; height: 50px; border-radius: 14px; background: #14b8a6; color: #fff;
+    display: grid; place-items: center; font-weight: 800; font-size: 20px; letter-spacing: -1px; }
+  h1 { font-size: 22px; }
+  .topbar .sub { color: #64748b; font-size: 13px; margin-top: 2px; }
+
+  /* Yükleme ekranı */
+  .dz { border: 2px dashed #cbd5e1; border-radius: 18px; padding: 64px 24px; text-align: center;
+    cursor: pointer; transition: .2s; background: #fff; max-width: 560px; margin: 40px auto; }
+  .dz:hover, .dz.drag { border-color: #14b8a6; background: #f0fdfa; }
+  .dz-icon { width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%;
+    background: #14b8a6; color: #fff; display: grid; place-items: center; font-size: 28px; }
+  .dz-title { font-weight: 600; font-size: 17px; margin-bottom: 6px; }
+  .dz-sub { color: #94a3b8; font-size: 13px; }
+
+  /* Ana grid: sol mockuplar | sağ önizleme+fiyat */
+  .layout { display: grid; grid-template-columns: 1.1fr 1.3fr; gap: 28px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  /* Renk seçici */
+  .colors { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .colors .lbl { font-weight: 600; font-size: 14px; margin-right: 4px; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+    transition: .15s; }
+  .swatch.active { border-color: #0f172a; transform: scale(1.1); }
+  .swatch.white { background: #fff; box-shadow: inset 0 0 0 1px #cbd5e1; }
+
+  /* Ürün mockup kartları */
+  .products { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 560px) { .products { grid-template-columns: repeat(2, 1fr); } }
+  .product { text-align: center; }
+  .product .frame { position: relative; background: #f1f5f9; border-radius: 14px; aspect-ratio: 1;
+    display: grid; place-items: center; overflow: hidden; }
+  .product .garment { width: 100%; height: 100%; object-fit: contain; }
+  .product .overlay { position: absolute; max-width: 38%; max-height: 38%; object-fit: contain;
+    pointer-events: none; }
+  .product .name { font-weight: 700; font-size: 15px; margin-top: 8px; }
+  .product .w { font-size: 12px; color: #64748b; }
+
+  /* Sağ panel */
+  .preview-box { position: relative; border-radius: 18px; padding: 20px; min-height: 300px;
+    display: grid; place-items: center; border: 1px solid #e2e8f0;
+    background-image:
+      linear-gradient(45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#e5e7eb 75%),
+      linear-gradient(-45deg,transparent 75%,#e5e7eb 75%);
+    background-size: 24px 24px; background-position: 0 0,0 12px,12px -12px,-12px 0;
+    background-color: #fff; }
+  .preview-box img { max-width: 100%; max-height: 340px; object-fit: contain; }
+  .dim-w { text-align: center; font-size: 13px; color: #14b8a6; font-weight: 600; margin-bottom: 6px; }
+  .dim-cap { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 8px; }
+
+  /* Fiyat tablosu */
+  .price-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; margin-top: 18px; }
+  .price-card h3 { font-size: 16px; margin-bottom: 14px; }
+  table.price { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.price th { text-align: left; color: #94a3b8; font-weight: 600; font-size: 12px; padding-bottom: 8px; }
+  table.price td { padding: 9px 0; border-top: 1px solid #f1f5f9; }
+  table.price tr.active td { background: #f0fdfa; font-weight: 700; }
+  table.price td:last-child, table.price th:last-child { text-align: right; }
+  .hint { color: #14b8a6; font-size: 12px; margin-top: 10px; }
+
+  /* DTF-Engine adım kartı */
+  .engine { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; margin-top: 18px; overflow: hidden; }
+  .engine-head { background: #f0fdfa; padding: 12px 18px; font-size: 13px; }
+  .engine-head b { color: #0f766e; }
+  .erow { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid #f1f5f9; }
+  .erow .dot { width: 24px; height: 24px; border-radius: 6px; background: #f1f5f9; color: #fff;
+    display: grid; place-items: center; font-size: 13px; flex-shrink: 0; font-weight: 700; }
+  .erow.running .dot { background: #14b8a6; }
+  .erow.done .dot { background: #16a34a; }
+  .erow.skipped .dot { background: #cbd5e1; }
+  .erow.error .dot { background: #dc2626; }
+  .erow .lbl { font-size: 14px; font-weight: 500; flex: 1; }
+  .erow.idle .lbl, .erow.pending .lbl { color: #94a3b8; }
+  .erow .right { font-size: 12px; color: #14b8a6; font-weight: 600; }
+  .spin { width: 11px; height: 11px; border: 2px solid #fff; border-top-color: transparent;
+    border-radius: 50%; animation: sp .7s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .vector-row { background: #f0fdfa; }
+  .vector-thumbs { display: flex; gap: 2px; }
+  .vector-thumbs img { width: 26px; height: 40px; object-fit: cover; border-radius: 4px; }
+
+  .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .btn { padding: 13px 22px; border-radius: 11px; font-size: 14px; font-weight: 600; cursor: pointer;
+    border: none; text-decoration: none; display: inline-grid; place-items: center; }
+  .btn.primary { background: #14b8a6; color: #fff; }
+  .btn.primary:disabled { opacity: .55; cursor: default; }
+  .btn.ghost { background: #f1f5f9; color: #475569; }
+  .errbox { color: #dc2626; font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="logo">dtf</div>
+    <div>
+      <h1>DTF-Engine — Größen-Guide</h1>
+      <div class="sub">Logo yükle · arka plan KI ile temizlensin · kalite en yükseğe çıksın</div>
+    </div>
+  </div>
+
+  <!-- Yükleme ekranı -->
+  <div id="dropzone" class="dz">
+    <div class="dz-icon">↑</div>
+    <div class="dz-title">Datei hier ablegen oder klicken</div>
+    <div class="dz-sub">PNG · JPG · WebP · GIF</div>
+    <input id="fileInput" type="file" accept="image/*" hidden />
+  </div>
+
+  <!-- Sonuç ekranı -->
+  <div id="app" style="display:none;">
+    <div class="colors">
+      <span class="lbl">Farbe:</span>
+      <span class="swatch white active" data-c="#ffffff"></span>
+      <span class="swatch" data-c="#1f2937" style="background:#1f2937"></span>
+      <span class="swatch" data-c="#6b7280" style="background:#6b7280"></span>
+      <span class="swatch" data-c="#1e3a5f" style="background:#1e3a5f"></span>
+      <span class="swatch" data-c="#1e40af" style="background:#1e40af"></span>
+      <span class="swatch" data-c="#3b82f6" style="background:#3b82f6"></span>
+      <span class="swatch" data-c="#16a34a" style="background:#16a34a"></span>
+      <span class="swatch" data-c="#f59e0b" style="background:#f59e0b"></span>
+      <span class="swatch" data-c="#ef4444" style="background:#ef4444"></span>
+      <span class="swatch" data-c="#a855f7" style="background:#a855f7"></span>
+    </div>
+
+    <div class="layout">
+      <!-- SOL: ürün mockupları -->
+      <div>
+        <div id="products" class="products"></div>
+      </div>
+
+      <!-- SAĞ: önizleme + fiyat + engine -->
+      <div>
+        <div class="dim-w" id="dimW">9,45 cm</div>
+        <div class="preview-box">
+          <img id="previewImg" alt="Vorschau" />
+        </div>
+        <div class="dim-cap">Maße in cm</div>
+
+        <div class="price-card">
+          <h3>Spare mehr: Mit mehr Transfers!</h3>
+          <table class="price">
+            <thead><tr><th>Menge</th><th>Preis</th><th>Rabatt</th></tr></thead>
+            <tbody>
+              <tr class="active"><td>1–14 Stück</td><td>0,39 €</td><td>–</td></tr>
+              <tr><td>15–49</td><td>0,31 €</td><td>20%</td></tr>
+              <tr><td>50–99</td><td>0,27 €</td><td>30%</td></tr>
+              <tr><td>100–249</td><td>0,23 €</td><td>40%</td></tr>
+              <tr><td>250+</td><td>0,20 €</td><td>50%</td></tr>
+            </tbody>
+          </table>
+          <div class="hint">Füge 14 weitere Transfers hinzu und erhalte 20% Rabatt.</div>
+        </div>
+
+        <div class="engine">
+          <div class="engine-head"><b>DTF1</b> DTF-Engine V2.2</div>
+          <div id="engineRows"></div>
+        </div>
+
+        <div class="errbox" id="errbox"></div>
+        <div class="actions">
+          <button id="processBtn" class="btn primary">Design optimieren</button>
+          <a id="downloadBtn" class="btn primary" style="display:none;" download="dtf-transfer.png">Herunterladen</a>
+          <button id="resetBtn" class="btn ghost">Neues Motiv</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "";
+const STEP_DEFS = [
+  { key: "analyze", label: "Datei analysieren" },
+  { key: "background", label: "Hintergrund entfernen" },
+  { key: "upscale", label: "Auflösung erhöhen" },
+  { key: "sharpen", label: "Kanten schärfen" },
+  { key: "vector", label: "Vektorisierbarkeit prüfen" },
+];
+
+// Ürün mockupları — basit SVG kıyafet siluetleri (harici görsel gerekmez)
+const GARMENTS = [
+  { name: "T-Shirt", w: "Breite: 25 cm", svg: tshirt() },
+  { name: "Hoodie", w: "Breite: 25 cm", svg: hoodie() },
+  { name: "Cap", w: "Breite: 7 cm", svg: cap() },
+  { name: "Polo", w: "Breite: 8 cm", svg: polo() },
+  { name: "Tasche", w: "Breite: 30 cm", svg: bag() },
+  { name: "Jacke", w: "Breite: 28 cm", svg: jacket() },
+];
+
+let currentFile = null, resultSrc = null;
+
+const $ = (id) => document.getElementById(id);
+const dropzone = $("dropzone"), fileInput = $("fileInput"), app = $("app");
+const previewImg = $("previewImg"), productsEl = $("products"), engineRows = $("engineRows");
+const processBtn = $("processBtn"), downloadBtn = $("downloadBtn"), resetBtn = $("resetBtn");
+const errbox = $("errbox"), dimW = $("dimW");
+
+dropzone.onclick = () => fileInput.click();
+dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add("drag"); };
+dropzone.ondragleave = () => dropzone.classList.remove("drag");
+dropzone.ondrop = (e) => { e.preventDefault(); dropzone.classList.remove("drag"); pickFile(e.dataTransfer.files[0]); };
+fileInput.onchange = (e) => pickFile(e.target.files[0]);
+
+document.querySelectorAll(".swatch").forEach((s) => {
+  s.onclick = () => {
+    document.querySelectorAll(".swatch").forEach((x) => x.classList.remove("active"));
+    s.classList.add("active");
+    document.querySelectorAll(".product .frame").forEach((f) => f.style.background = s.dataset.c === "#ffffff" ? "#f1f5f9" : s.dataset.c);
+  };
+});
+
+function pickFile(f) {
+  if (!f) return;
+  currentFile = f;
+  resultSrc = URL.createObjectURL(f);
+  previewImg.src = resultSrc;
+  dropzone.style.display = "none";
+  app.style.display = "block";
+  renderProducts();
+  renderSteps({});
+  errbox.textContent = "";
+  processBtn.style.display = "inline-grid"; processBtn.disabled = false;
+  processBtn.textContent = "Design optimieren";
+  downloadBtn.style.display = "none";
+}
+
+function renderProducts() {
+  productsEl.innerHTML = GARMENTS.map((g) => `
+    <div class="product">
+      <div class="frame">
+        ${g.svg}
+        <img class="overlay" src="${resultSrc}" alt="" />
+      </div>
+      <div class="name">${g.name}</div>
+      <div class="w">${g.w}</div>
+    </div>`).join("");
+}
+
+function renderSteps(state) {
+  engineRows.innerHTML = STEP_DEFS.map((d) => {
+    const s = state[d.key] || { status: "idle" };
+    let icon = "";
+    if (s.status === "done") icon = "✓";
+    else if (s.status === "running") icon = '<span class="spin"></span>';
+    else if (s.status === "skipped") icon = "–";
+    else if (s.status === "error") icon = "!";
+    let right = "";
+    if (d.key === "background" && s.status === "done") right = '<span class="right">Original anzeigen</span>';
+    return `<div class="erow ${s.status}">
+      <span class="dot">${icon}</span>
+      <span class="lbl">${s.label || d.label}</span>
+      ${right}
+    </div>`;
+  }).join("");
+}
+
+processBtn.onclick = async () => {
+  if (!currentFile) return;
+  processBtn.disabled = true;
+  processBtn.textContent = "Wird optimiert…";
+  errbox.textContent = "";
+  const state = {};
+  STEP_DEFS.forEach((d) => state[d.key] = { status: "pending", label: d.label });
+  renderSteps(state);
+
+  try {
+    const form = new FormData();
+    form.append("image", currentFile);
+    const res = await fetch(API + "/api/process-stream", { method: "POST", body: form });
+    if (!res.ok) throw new Error("Sunucu hatası: " + res.status);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const blocks = buf.split("\n\n");
+      buf = blocks.pop();
+      for (const block of blocks) {
+        const evt = (block.match(/^event: (.+)$/m) || [])[1];
+        const dataRaw = (block.match(/^data: (.+)$/m) || [])[1];
+        if (!evt || !dataRaw) continue;
+        const data = JSON.parse(dataRaw);
+        if (evt === "step") { state[data.key] = { status: data.status, label: data.label }; renderSteps(state); }
+        else if (evt === "done") showResult(data);
+        else if (evt === "error") errbox.textContent = data.message;
+      }
+    }
+  } catch (err) {
+    errbox.textContent = err.message;
+  } finally {
+    processBtn.disabled = false;
+    processBtn.textContent = "Design optimieren";
+  }
+};
+
+function showResult(data) {
+  resultSrc = API + data.resultUrl + "?t=" + Date.now();
+  previewImg.src = resultSrc;
+  renderProducts();
+  dimW.textContent = data.printSizeCm.width.toString().replace(".", ",") + " cm";
+  // vektör satırı ekle
+  if (data.vectorizable) {
+    engineRows.insertAdjacentHTML("beforeend", `
+      <div class="erow done vector-row">
+        <div class="vector-thumbs"><img src="${resultSrc}"><img src="${resultSrc}"></div>
+        <span class="lbl">✨ Vektor-Version bereit <small style="color:#94a3b8">(optional)</small></span>
+      </div>`);
+  }
+  downloadBtn.href = API + data.resultUrl;
+  downloadBtn.style.display = "inline-grid";
+  processBtn.style.display = "none";
+}
+
+resetBtn.onclick = () => {
+  currentFile = null;
+  dropzone.style.display = "block";
+  app.style.display = "none";
+  fileInput.value = "";
+};
+
+// ── Basit SVG kıyafet siluetleri ──
+function tshirt(){return '<svg class="garment" viewBox="0 0 100 100"><path d="M30 20 L20 28 L25 38 L30 35 L30 80 L70 80 L70 35 L75 38 L80 28 L70 20 L60 20 Q50 28 40 20 Z" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/></svg>';}
+function hoodie(){return '<svg class="garment" viewBox="0 0 100 100"><path d="M32 22 L20 30 L25 42 L31 38 L31 82 L69 82 L69 38 L75 42 L80 30 L68 22 Q60 18 50 24 Q40 18 32 22 Z" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><path d="M42 22 Q50 32 58 22" fill="none" stroke="#cbd5e1" stroke-width="1.2"/></svg>';}
+function cap(){return '<svg class="garment" viewBox="0 0 100 100"><path d="M22 56 Q22 32 50 32 Q78 32 78 56 L75 58 Q50 50 25 58 Z" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><path d="M75 56 L90 60 L88 64 L74 60 Z" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/></svg>';}
+function polo(){return '<svg class="garment" viewBox="0 0 100 100"><path d="M32 22 L22 30 L27 40 L32 37 L32 80 L68 80 L68 37 L73 40 L78 30 L68 22 L58 22 L50 30 L42 22 Z" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><path d="M44 22 L50 32 L56 22" fill="none" stroke="#cbd5e1" stroke-width="1.2"/></svg>';}
+function bag(){return '<svg class="garment" viewBox="0 0 100 100"><rect x="30" y="35" width="40" height="50" rx="2" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><path d="M38 35 Q38 20 50 20 Q62 20 62 35" fill="none" stroke="#cbd5e1" stroke-width="1.5"/></svg>';}
+function jacket(){return '<svg class="garment" viewBox="0 0 100 100"><path d="M30 22 L20 30 L25 42 L30 39 L30 82 L70 82 L70 39 L75 42 L80 30 L70 22 L50 26 Z" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/><line x1="50" y1="26" x2="50" y2="82" stroke="#cbd5e1" stroke-width="1"/></svg>';}
+</script>
+</body>
+</html>

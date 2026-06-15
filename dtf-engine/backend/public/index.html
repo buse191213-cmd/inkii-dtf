@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>INKIIWORKS — DTF-Engine</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, "Segoe UI", sans-serif; background: #f8fafc;
+    color: #0f172a; min-height: 100vh; padding: 24px 16px; }
+  .wrap { max-width: 1240px; margin: 0 auto; }
+  .topbar { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+  .logo { width: 50px; height: 50px; border-radius: 14px; background: #14b8a6; color: #fff;
+    display: grid; place-items: center; font-weight: 800; font-size: 20px; letter-spacing: -1px; }
+  h1 { font-size: 22px; }
+  .topbar .sub { color: #64748b; font-size: 13px; margin-top: 2px; }
+
+  .dz { border: 2px dashed #cbd5e1; border-radius: 18px; padding: 64px 24px; text-align: center;
+    cursor: pointer; transition: .2s; background: #fff; max-width: 560px; margin: 40px auto; }
+  .dz:hover, .dz.drag { border-color: #14b8a6; background: #f0fdfa; }
+  .dz-icon { width: 60px; height: 60px; margin: 0 auto 16px; border-radius: 50%;
+    background: #14b8a6; color: #fff; display: grid; place-items: center; font-size: 28px; }
+  .dz-title { font-weight: 600; font-size: 17px; margin-bottom: 6px; }
+  .dz-sub { color: #94a3b8; font-size: 13px; }
+
+  .layout { display: grid; grid-template-columns: 1.5fr 1.1fr 0.9fr; gap: 22px; align-items: start; }
+  @media (max-width: 1200px) { .layout { grid-template-columns: 1fr 1.2fr; } }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .colors { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .colors .lbl { font-weight: 600; font-size: 14px; margin-right: 4px; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: .15s; }
+  .swatch.active { border-color: #0f172a; transform: scale(1.12); }
+  .swatch.white { background: #fff; box-shadow: inset 0 0 0 1px #cbd5e1; }
+
+  /* tüm ana kutular köşeli (radius yok) */
+  .mock, .preview-box, .compare, .engine, .dz,
+  #vectorCard, #qualityCard, #whiteInkBox, #vectorPreview,
+  .mock-big, .modal, #dragHint, #zipDownload, .vs-cell { border-radius: 0 !important; }
+
+  .products { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 560px) { .products { grid-template-columns: repeat(2, 1fr); } }
+  .product { text-align: center; }
+  .mock { position: relative; aspect-ratio: 1; overflow: hidden; background: #eef2f6; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: box-shadow .2s; }
+  .mock:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  /* hover'da mockup'ın DİBİNE yapışan şık gri kontrol şeridi */
+  .ctrlbar { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+    display: flex; gap: 8px; justify-content: center; align-items: center;
+    background: linear-gradient(to top, rgba(28,39,33,0.96), rgba(28,39,33,0.82)); padding: 12px 10px;
+    opacity: 0; transform: translateY(100%); transition: opacity .2s, transform .2s; pointer-events: none; }
+  .mock:hover .ctrlbar, .ctrlbar.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .ctrlbar button { width: 34px; height: 34px; border: none; background: rgba(255,255,255,0.16); color: #fff;
+    cursor: pointer; font-size: 16px; line-height: 1; display: grid; place-items: center;
+    transition: background .15s, transform .1s; }
+  .ctrlbar button:hover { background: rgba(255,255,255,0.34); }
+  .ctrlbar button:active { transform: scale(0.88); }
+  .ctrlbar button.dl { background: #d1aa81; color: #1c2721; }
+  .ctrlbar button.dl:hover { background: #e0bd96; }
+  .ctrlbar .szlbl { color: #f1f5f9; font-size: 12px; font-weight: 700; min-width: 34px; text-align: center; }
+  .ctrlbar .sep { width: 1px; height: 20px; background: rgba(255,255,255,0.25); margin: 0 2px; }
+  /* mockup kutusu */
+  .mock .garment { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1; }
+  /* renk katmanı: kıyafet PNG'sini maske olarak kullanıp SADECE kıyafeti boyar.
+     multiply YOK - sadece mask, böylece gri zemin boyanmaz. */
+  .mock .tint { position: absolute; inset: 0; z-index: 2; pointer-events: none; opacity: 0.85; }
+  .mock .design { position: absolute; z-index: 3; object-fit: contain; pointer-events: auto; cursor: move; }
+  .mock .garment-canvas { pointer-events: none; }
+  .product .name { font-weight: 700; font-size: 15px; margin-top: 8px; }
+  .product .w { font-size: 12px; color: #64748b; }
+
+  .preview-box { position: relative; border-radius: 18px; padding: 20px; min-height: 300px; overflow: hidden;
+    display: grid; place-items: center; border: 1px solid #e2e8f0;
+    background-image:
+      linear-gradient(45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#e5e7eb 75%),
+      linear-gradient(-45deg,transparent 75%,#e5e7eb 75%);
+    background-size: 24px 24px; background-position: 0 0,0 12px,12px -12px,-12px 0; background-color: #fff; }
+  .preview-box img { max-width: 100%; max-height: 340px; object-fit: contain; }
+  .dim-w { text-align: center; font-size: 13px; color: #14b8a6; font-weight: 600; margin-bottom: 6px; }
+  .dim-cap { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 8px; }
+
+  /* öncesi/sonrası karşılaştırma kaydırıcı */
+  .compare { position: relative; max-width: 100%; margin: 0 auto; border-radius: 14px; overflow: hidden;
+    background-image:
+      linear-gradient(45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#e5e7eb 75%),
+      linear-gradient(-45deg,transparent 75%,#e5e7eb 75%);
+    background-size: 24px 24px; background-position: 0 0,0 12px,12px -12px,-12px 0; background-color:#fff; }
+  .compare > img { display: block; width: 100%; height: auto; }
+  /* "sonrası" katmanı: kutuyu birebir kaplar, sadece soldan kırpılır */
+  .compare .after { position: absolute; top: 0; left: 0; height: 100%; width: 50%; overflow: hidden; }
+  /* sonrası görseli kapsayıcının TAM genişliğinde (öncesi ile birebir hizalı) */
+  .compare .after img { position: absolute; top: 0; left: 0; display: block;
+    width: 100%; height: auto; max-width: none; }
+  .compare .handle { position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; background: #14b8a6;
+    cursor: ew-resize; z-index: 5; transform: translateX(-50%); }
+  .compare .handle::after { content: "⟷"; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: #14b8a6; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; }
+  .cmp-labels { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin-top: 6px; padding: 0 4px; }
+
+  .price-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 18px 20px; margin-top: 18px; }
+  .price-card h3 { font-size: 16px; margin-bottom: 14px; }
+  table.price { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.price th { text-align: left; color: #94a3b8; font-weight: 600; font-size: 12px; padding-bottom: 8px; }
+  table.price td { padding: 9px 0; border-top: 1px solid #f1f5f9; }
+  table.price tr.active td { background: #f0fdfa; font-weight: 700; }
+  table.price td:last-child, table.price th:last-child { text-align: right; }
+  .hint { color: #14b8a6; font-size: 12px; margin-top: 10px; }
+
+  .engine { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; margin-top: 18px; overflow: hidden; }
+  .engine-head { background: #f0fdfa; padding: 12px 18px; font-size: 13px; }
+  .engine-head b { color: #0f766e; }
+  .erow { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid #f1f5f9; }
+  .erow .dot { width: 24px; height: 24px; border-radius: 6px; background: #f1f5f9; color: #fff; display: grid; place-items: center; font-size: 13px; flex-shrink: 0; font-weight: 700; }
+  .erow.running .dot { background: #14b8a6; animation: pulse 1.2s ease-in-out infinite; }
+  .erow.running .dot::after { content: ""; width: 11px; height: 11px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  .erow.running .lbl { color: #0f766e; font-weight: 600; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(20,184,166,0.45); } 50% { box-shadow: 0 0 0 6px rgba(20,184,166,0); } }
+  @keyframes popIn { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+  .erow.done .dot { background: #16a34a; animation: popIn 0.35s ease; }
+  .erow.skipped .dot { background: #cbd5e1; }
+  .erow.error .dot { background: #dc2626; }
+  .erow .lbl { font-size: 14px; font-weight: 500; flex: 1; }
+  .erow.idle .lbl, .erow.pending .lbl { color: #94a3b8; }
+  .erow .right { font-size: 12px; color: #14b8a6; font-weight: 600; cursor: pointer; }
+  .spin { width: 11px; height: 11px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: sp .7s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .btn { padding: 13px 22px; border-radius: 11px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; display: inline-grid; place-items: center; }
+  .btn.primary { background: #14b8a6; color: #fff; }
+  .btn.primary:disabled { opacity: .55; cursor: default; }
+  .btn.ghost { background: #f1f5f9; color: #475569; }
+  .errbox { color: #dc2626; font-size: 13px; margin-top: 10px; }
+
+  /* Modal (pop-up) - vektör karşılaştırma + büyük önizleme */
+  .modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,.6); z-index: 100;
+    display: none; align-items: center; justify-content: center; padding: 20px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 18px; max-width: 760px; width: 100%;
+    max-height: 90vh; overflow: auto; padding: 28px; position: relative; }
+  .modal h2 { font-size: 22px; margin-bottom: 6px; }
+  .modal .desc { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+  .modal-close { position: absolute; top: 18px; right: 18px; width: 34px; height: 34px;
+    border-radius: 50%; background: #f1f5f9; border: none; cursor: pointer; font-size: 16px; }
+  .modal .section-title { font-size: 12px; font-weight: 700; letter-spacing: .05em;
+    color: #94a3b8; margin: 18px 0 10px; }
+  .vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .vs-cell { position: relative; border-radius: 12px; overflow: hidden;
+    background-image:
+      linear-gradient(45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#e5e7eb 75%),
+      linear-gradient(-45deg,transparent 75%,#e5e7eb 75%);
+    background-size: 18px 18px; background-position:0 0,0 9px,9px -9px,-9px 0; background-color:#fff; }
+  .vs-cell img { width: 100%; display: block; }
+  .vs-tag { position: absolute; top: 10px; left: 10px; padding: 4px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 700; color: #fff; }
+  .vs-tag.pixel { background: #64748b; }
+  .vs-tag.vektor { background: #14b8a6; }
+  .modal-actions { display: flex; gap: 12px; margin-top: 22px; }
+  .modal-actions .btn { flex: 1; }
+  .btn.outline { background: #fff; border: 1.5px solid #cbd5e1; color: #0f172a; }
+
+  /* Büyük önizleme (mockup'a tıklayınca) */
+  .big-preview { text-align: center; }
+  .big-preview .mock-big { position: relative; max-width: 480px; margin: 0 auto; }
+  .big-preview .mock-big img.garment { width: 100%; }
+  .big-preview .mock-big img.design { position: absolute; }
+  .big-preview h3 { margin-top: 16px; font-size: 18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="logo">dtf</div>
+    <div>
+      <h1>INKIIWORKS — DTF-Engine</h1>
+      <div class="sub">Logo hochladen · Hintergrund per KI entfernen · maximale Qualität</div>
+    </div>
+  </div>
+
+  <div id="dropzone" class="dz">
+    <div class="dz-icon">↑</div>
+    <div class="dz-title">Datei hier ablegen oder klicken</div>
+    <div class="dz-sub">PNG · JPG · WebP · GIF</div>
+    <input id="fileInput" type="file" accept="image/*" hidden />
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="colors">
+      <span class="lbl">Farbe:</span>
+      <span class="swatch white active" data-c="#ffffff"></span>
+      <span class="swatch" data-c="#1f2937" style="background:#1f2937"></span>
+      <span class="swatch" data-c="#6b7280" style="background:#6b7280"></span>
+      <span class="swatch" data-c="#1e3a5f" style="background:#1e3a5f"></span>
+      <span class="swatch" data-c="#1e40af" style="background:#1e40af"></span>
+      <span class="swatch" data-c="#3b82f6" style="background:#3b82f6"></span>
+      <span class="swatch" data-c="#16a34a" style="background:#16a34a"></span>
+      <span class="swatch" data-c="#f59e0b" style="background:#f59e0b"></span>
+      <span class="swatch" data-c="#ef4444" style="background:#ef4444"></span>
+      <span class="swatch" data-c="#a855f7" style="background:#a855f7"></span>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div id="dragHint" style="display:none;font-size:13px;color:#64748b;margin-bottom:10px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:8px 12px;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:-3px;margin-right:6px"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>Ziehe das Logo an die gewünschte Position (rechts/links/oben/unten)
+        </div>
+        <div id="products" class="products"></div>
+      </div>
+
+      <div>
+        <div class="dim-w" id="dimW">—</div>
+        <!-- üst bar: arka plan durumu + Original anzeigen toggle (DTF1 gibi) -->
+        <div id="previewTopBar" style="display:none;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px">
+          <span style="color:#16a34a;font-weight:600">✓ Hintergrund entfernt</span>
+          <span style="display:flex;gap:14px">
+            <span id="zoomToggle" onclick="toggleZoom()" style="color:#14b8a6;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>Zoom</span>
+            <span onclick="openFullscreen()" style="color:#14b8a6;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>Vollbild</span>
+            <span id="origToggle" onclick="toggleCompare()" style="color:#14b8a6;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>Mit Hintergrund</span>
+          </span>
+        </div>
+        <div class="preview-box" id="previewBox">
+          <img id="previewImg" alt="Vorschau" />
+        </div>
+        <div class="dim-cap">Maße in cm</div>
+
+        <!-- vektör versiyonu (büyük görselin altında) -->
+        <div id="vectorCard" style="display:none;margin-top:16px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <h3 style="font-size:15px;margin:0">✨ Vektor-Version <small style="color:#94a3b8;font-weight:400">(gestochen scharf bei jeder Größe)</small></h3>
+            <a id="vectorDownload" class="btn-mini" href="#" download style="font-size:12px;color:#14b8a6;font-weight:600;text-decoration:none">Herunterladen</a>
+          </div>
+          <div id="vectorPreview" style="background:repeating-conic-gradient(#f1f5f9 0% 25%,#fff 0% 50%) 50%/20px 20px;border-radius:10px;padding:12px;display:grid;place-items:center;min-height:120px">
+            <img id="vectorImg" style="max-width:100%;max-height:300px" alt="Vektor" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. SÜTUN: kalite raporu + engine + butonlar -->
+      <div>
+        <!-- DTF Baskı Kalite Raporu -->
+        <div id="qualityCard" style="display:none;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:18px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+            <div id="scoreCircle" style="width:72px;height:72px;border-radius:50%;display:grid;place-items:center;flex-shrink:0;font-weight:800;font-size:20px;color:#fff;background:#16a34a">—</div>
+            <div>
+              <div style="font-size:15px;font-weight:700" id="scoreStatus">Druckqualität</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:2px" id="scoreSub">DTF Produktionsbericht</div>
+            </div>
+            <a id="reportDownload" href="#" download style="margin-left:auto;font-size:12px;color:#14b8a6;font-weight:600;text-decoration:none">Bericht ↓</a>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px" id="qualityGrid"></div>
+
+          <div id="whiteInkBox" style="display:none;margin-top:14px;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.5"></div>
+
+          <div id="recommendBox" style="margin-top:14px;font-size:13px"></div>
+          <a id="zipDownload" href="#" style="display:none;margin-top:14px;width:100%;text-align:center;background:#14b8a6;color:#fff;padding:11px;border-radius:10px;font-weight:600;font-size:13px;text-decoration:none">⬇ Alle Dateien herunterladen (ZIP)</a>
+        </div>
+
+        <div class="engine" style="margin-top:16px">
+          <div class="engine-head"><b>INKIIWORKS</b> DTF-Engine</div>
+          <div id="engineRows"></div>
+        </div>
+
+        <div class="errbox" id="errbox"></div>
+        <div class="actions">
+          <button id="processBtn" class="btn primary">Design optimieren</button>
+          <a id="downloadBtn" class="btn primary" style="display:none;" download="dtf-transfer.png">Herunterladen</a>
+          <button id="resetBtn" class="btn ghost">Neues Motiv</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "";
+const STEP_DEFS = [
+  { key: "analyze", label: "Datei analysieren" },
+  { key: "background", label: "Hintergrund entfernen" },
+  { key: "edge", label: "Kanten reinigen" },
+  { key: "upscale", label: "Auflösung erhöhen" },
+  { key: "color", label: "Farben optimieren" },
+  { key: "sharpen", label: "Kanten schärfen" },
+  { key: "vector", label: "Vektorisierbarkeit prüfen" },
+];
+
+// Gerçek ürün mockupları: /mockups klasöründeki PNG'ler (beyaz, şeffaf zemin).
+// design konumu: logonun kıyafet üzerinde oturacağı yüzde-kutu (göğüs/ön yüz).
+const GARMENTS = [
+  // refW = mockup'ın temsil ettiği gerçek baskı alanı genişliği (cm).
+  // Gösterilen cm = refW × (logo area.width / 100), logo boyutuyla DİNAMİK.
+  { name: "T-Shirt", refW: 83, img: "/mockups/tshirt.png", area: { top: 34, left: 35, width: 30, height: 26 } },
+  { name: "Hoodie",  refW: 89, img: "/mockups/hoodie.png", area: { top: 36, left: 36, width: 28, height: 24 } },
+  { name: "Cap",     refW: 39, img: "/mockups/cap.png",    area: { top: 38, left: 41, width: 18, height: 12 } },
+  { name: "Polo",    refW: 57, img: "/mockups/polo.png",   area: { top: 40, left: 43, width: 14, height: 14 } },
+  { name: "Tasche",  refW: 88, img: "/mockups/bag.png",    area: { top: 42, left: 33, width: 34, height: 28 } },
+  { name: "Jacke",   refW: 100, img: "/mockups/jacket.png", area: { top: 38, left: 36, width: 28, height: 24 } },
+];
+// her ürünün gösterilecek baskı genişliği (cm) — logo boyutuna göre
+function garmentCm(g) { return Math.round(g.refW * (g.area.width / 100)); }
+
+let currentFile = null, originalSrc = null, resultSrc = null, activeColor = "#ffffff";
+
+const $ = (id) => document.getElementById(id);
+const dropzone = $("dropzone"), fileInput = $("fileInput"), app = $("app");
+const previewImg = $("previewImg"), previewBox = $("previewBox");
+const productsEl = $("products"), engineRows = $("engineRows");
+const processBtn = $("processBtn"), downloadBtn = $("downloadBtn"), resetBtn = $("resetBtn");
+const errbox = $("errbox"), dimW = $("dimW");
+// modal elemanları kullanıldıkları anda bulunur (DOM'da script'ten sonra geliyor)
+function getModalBg() { return document.getElementById("modalBg"); }
+function getModalContent() { return document.getElementById("modalContent"); }
+
+dropzone.onclick = () => fileInput.click();
+dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add("drag"); };
+dropzone.ondragleave = () => dropzone.classList.remove("drag");
+dropzone.ondrop = (e) => { e.preventDefault(); dropzone.classList.remove("drag"); pickFile(e.dataTransfer.files[0]); };
+fileInput.onchange = (e) => pickFile(e.target.files[0]);
+
+document.querySelectorAll(".swatch").forEach((s) => {
+  s.onclick = () => {
+    document.querySelectorAll(".swatch").forEach((x) => x.classList.remove("active"));
+    s.classList.add("active");
+    activeColor = s.dataset.c;
+    renderProducts();
+  };
+});
+
+function pickFile(f) {
+  if (!f) return;
+  currentFile = f;
+  originalSrc = URL.createObjectURL(f);
+  resultSrc = originalSrc;
+  previewImg.src = originalSrc;
+  dropzone.style.display = "none";
+  app.style.display = "block";
+  renderProducts();
+  renderSteps({});
+  errbox.textContent = "";
+  processBtn.style.display = "inline-grid"; processBtn.disabled = false;
+  processBtn.textContent = "Design optimieren";
+  downloadBtn.style.display = "none";
+}
+
+function renderProducts() {
+  productsEl.innerHTML = GARMENTS.map((g, idx) => {
+    return `
+    <div class="product">
+      <div class="mock" id="mock${idx}">
+        <canvas class="garment-canvas" id="gc${idx}" width="400" height="400"
+                style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none"></canvas>
+        <img class="design" id="design${idx}" data-idx="${idx}" src="${resultSrc}"
+             style="position:absolute;top:${g.area.top}%;left:${g.area.left}%;width:${g.area.width}%;height:${g.area.height}%;object-fit:contain;z-index:3;cursor:move;touch-action:none;transform:rotate(${g.area.rotation||0}deg)" alt="">
+        <div class="ctrlbar">
+          <button onclick="resizeLogo(${idx},-1)" title="Verkleinern">−</button>
+          <span class="szlbl" id="sizeLbl${idx}">${Math.round(g.area.width)}%</span>
+          <button onclick="resizeLogo(${idx},1)" title="Vergrößern">+</button>
+          <span class="sep"></span>
+          <button onclick="rotateLogo(${idx},-15)" title="Links drehen">↺</button>
+          <button onclick="rotateLogo(${idx},15)" title="Rechts drehen">↻</button>
+          <span class="sep"></span>
+          <button onclick="openBigPreview(${idx})" title="Große Vorschau">⤢</button>
+          <button class="dl" onclick="downloadMockup(${idx})" title="Als PNG herunterladen">⬇</button>
+        </div>
+      </div>
+      <div class="name">${g.name}</div>
+      <div class="w">Breite: <span id="cmLbl${idx}">${garmentCm(g)}</span> cm</div>
+    </div>`;
+  }).join("");
+  // her kıyafeti canvas'a çiz + renklendir
+  GARMENTS.forEach((g, idx) => paintGarment(idx, g.img));
+  // logoları sürüklenebilir yap
+  GARMENTS.forEach((g, idx) => makeDraggable(idx));
+  // mobil: mockup'a dokununca kontrol barını göster (hover olmadığı için)
+  GARMENTS.forEach((g, idx) => {
+    const mock = document.getElementById("mock" + idx);
+    const bar = mock && mock.querySelector(".ctrlbar");
+    if (!mock || !bar) return;
+    mock.addEventListener("touchstart", () => {
+      document.querySelectorAll(".ctrlbar.show").forEach(b => { if (b !== bar) b.classList.remove("show"); });
+      bar.classList.add("show");
+    }, { passive: true });
+  });
+}
+
+// ── Logoyu mockup üzerinde sürükle-bırak ile konumlandır ──
+function makeDraggable(idx) {
+  const design = document.getElementById("design" + idx);
+  const mock = document.getElementById("mock" + idx);
+  if (!design || !mock) return;
+  let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+  const getPoint = (e) => e.touches ? e.touches[0] : e;
+
+  const down = (e) => {
+    dragging = true;
+    const p = getPoint(e);
+    startX = p.clientX; startY = p.clientY;
+    startLeft = GARMENTS[idx].area.left;
+    startTop = GARMENTS[idx].area.top;
+    design.style.cursor = "grabbing";
+    e.preventDefault();
+  };
+  const move = (e) => {
+    if (!dragging) return;
+    const p = getPoint(e);
+    const rect = mock.getBoundingClientRect();
+    // fare hareketini yüzdeye çevir
+    const dxPct = ((p.clientX - startX) / rect.width) * 100;
+    const dyPct = ((p.clientY - startY) / rect.height) * 100;
+    let newLeft = startLeft + dxPct;
+    let newTop = startTop + dyPct;
+    // sınırla: logo mockup dışına taşmasın
+    const w = GARMENTS[idx].area.width, h = GARMENTS[idx].area.height;
+    newLeft = Math.max(0, Math.min(100 - w, newLeft));
+    newTop = Math.max(0, Math.min(100 - h, newTop));
+    GARMENTS[idx].area.left = newLeft;
+    GARMENTS[idx].area.top = newTop;
+    design.style.left = newLeft + "%";
+    design.style.top = newTop + "%";
+    e.preventDefault();
+  };
+  const up = () => { dragging = false; design.style.cursor = "move"; };
+
+  design.addEventListener("mousedown", down);
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+  design.addEventListener("touchstart", down, { passive: false });
+  window.addEventListener("touchmove", move, { passive: false });
+  window.addEventListener("touchend", up);
+}
+
+// ── Logoyu döndür ──
+window.rotateLogo = rotateLogo;
+function rotateLogo(idx, deg) {
+  const g = GARMENTS[idx];
+  if (!g) return;
+  g.area.rotation = ((g.area.rotation || 0) + deg) % 360;
+  const design = document.getElementById("design" + idx);
+  if (design) design.style.transform = "rotate(" + g.area.rotation + "deg)";
+}
+
+// ── Logoyu büyüt/küçült (merkez sabit) ──
+window.resizeLogo = resizeLogo;
+function resizeLogo(idx, dir) {
+  const g = GARMENTS[idx];
+  if (!g) return;
+  const step = 3; // her tıkta %3
+  const oldW = g.area.width, oldH = g.area.height;
+  // en-boy oranını koru
+  const ratio = oldH / oldW;
+  let newW = oldW + dir * step;
+  newW = Math.max(5, Math.min(90, newW)); // min %5, max %90
+  const newH = newW * ratio;
+  // merkez sabit kalsın: sol/üst'ü yarı fark kadar kaydır
+  const cx = g.area.left + oldW / 2;
+  const cy = g.area.top + oldH / 2;
+  let newLeft = cx - newW / 2;
+  let newTop = cy - newH / 2;
+  // sınır içinde tut
+  newLeft = Math.max(0, Math.min(100 - newW, newLeft));
+  newTop = Math.max(0, Math.min(100 - newH, newTop));
+  g.area.width = newW; g.area.height = newH;
+  g.area.left = newLeft; g.area.top = newTop;
+  // uygula
+  const design = document.getElementById("design" + idx);
+  if (design) {
+    design.style.width = newW + "%";
+    design.style.height = newH + "%";
+    design.style.left = newLeft + "%";
+    design.style.top = newTop + "%";
+  }
+  const lbl = document.getElementById("sizeLbl" + idx);
+  if (lbl) lbl.textContent = Math.round(newW) + "%";
+  const cmLbl = document.getElementById("cmLbl" + idx);
+  if (cmLbl) cmLbl.textContent = garmentCm(g);
+}
+
+// ── DTF Kalite Raporu kartını doldur ──
+function renderQualityReport(data) {
+  const q = data.quality, wi = data.whiteInk, rep = data.report;
+  const card = document.getElementById("qualityCard");
+  if (!card || !q || !rep) return;
+
+  // skor dairesi (renk: yeşil/sarı/kırmızı)
+  const circle = document.getElementById("scoreCircle");
+  circle.textContent = q.score;
+  let col = "#16a34a"; // yeşil
+  if (q.score < 85) col = "#f59e0b"; // sarı
+  if (q.score < 65) col = "#ef4444"; // kırmızı
+  circle.style.background = col;
+
+  document.getElementById("scoreStatus").textContent = q.statusIcon + " " + q.status;
+  document.getElementById("scoreSub").textContent = "DTF Produktionsbericht";
+  const rd = document.getElementById("reportDownload");
+  if (rd && data.reportUrl) rd.href = API + data.reportUrl;
+
+  // teknik bilgi tablosu
+  const grid = document.getElementById("qualityGrid");
+  const row = (label, val) => `<div style="color:#94a3b8">${label}</div><div style="font-weight:600;text-align:right">${val}</div>`;
+  grid.innerHTML =
+    row("Auflösung", q.width + " × " + q.height + " px") +
+    row("Druckgröße", q.printSizeCm.width + " × " + q.printSizeCm.height + " cm") +
+    row("DPI (bei 25cm)", q.estimatedDpi) +
+    row("Transparenz", q.hasAlpha ? "✓ Ja" : "✗ Nein") +
+    row("Farben", q.colorCount) +
+    row("Vektor", rep.vectorAvailable ? "✓ Verfügbar" : "Pixel");
+
+  // beyaz mürekkep / kıyafet uyarısı
+  const wb = document.getElementById("whiteInkBox");
+  if (wi && wi.warnings && wi.warnings.length) {
+    wb.style.display = "block";
+    wb.style.background = "#fef3c7";
+    wb.style.border = "1px solid #fcd34d";
+    wb.style.color = "#92400e";
+    wb.innerHTML = "⚠ " + wi.warnings.join("<br>⚠ ") + "<br><b>" + wi.garmentHint + "</b>";
+  } else if (wi) {
+    wb.style.display = "block";
+    wb.style.background = "#f0fdf4";
+    wb.style.border = "1px solid #86efac";
+    wb.style.color = "#166534";
+    wb.innerHTML = "✓ " + wi.garmentHint;
+  }
+
+  // önerilen ürünler
+  const rb = document.getElementById("recommendBox");
+  const chips = (rep.recommendedProducts || []).map(p =>
+    `<span style="display:inline-block;background:#f1f5f9;border-radius:20px;padding:3px 11px;margin:2px;font-size:12px">${p}</span>`).join("");
+  rb.innerHTML =
+    `<div style="font-weight:600;margin-bottom:6px">Empfohlen für:</div>${chips}` +
+    `<div style="margin-top:10px;color:#64748b">Max. empfohlene Breite: <b>${rep.maxRecommendedWidthCm} cm</b></div>` +
+    `<div style="margin-top:10px;padding:8px 12px;background:${q.score>=65?'#f0fdf4':'#fef2f2'};border-radius:8px;font-weight:700;color:${q.score>=65?'#166534':'#991b1b'}">${rep.printStatusIcon} ${rep.printStatus}</div>`;
+
+  card.style.display = "block";
+
+  // ZIP indirme butonu
+  const zip = document.getElementById("zipDownload");
+  if (zip && data.zipUrl) {
+    zip.href = API + data.zipUrl;
+    zip.style.display = "block";
+  }
+}
+
+// ── Mockup'ı (kıyafet + renk + logo) PNG olarak indir ──
+window.downloadMockup = downloadMockup;
+async function downloadMockup(idx) {
+  const g = GARMENTS[idx];
+  if (!g) return;
+  // 1) kıyafeti yükle
+  const garmentImg = await loadImg(g.img);
+  const W = garmentImg.naturalWidth, H = garmentImg.naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  // 2) kıyafeti çiz + renklendir (ekrandakiyle aynı yöntem)
+  ctx.drawImage(garmentImg, 0, 0);
+  if (activeColor !== "#ffffff") {
+    const rgb = hexToRgb(activeColor);
+    const dt = ctx.getImageData(0, 0, W, H);
+    const d = dt.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i+3] < 10) continue;
+      const lum = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114) / 255;
+      const shade = Math.pow(lum, 0.85);
+      d[i]=rgb.r*shade; d[i+1]=rgb.g*shade; d[i+2]=rgb.b*shade;
+    }
+    ctx.putImageData(dt, 0, 0);
+  }
+  // 3) logoyu doğru konum/boyutta üstüne çiz (yüzde → piksel)
+  const logoImg = await loadImg(resultSrc);
+  const boxX = (g.area.left/100) * W;
+  const boxY = (g.area.top/100) * H;
+  const boxW = (g.area.width/100) * W;
+  const boxH = (g.area.height/100) * H;
+  // object-fit:contain mantığı: logo kutuya sığsın, oranı bozulmasın
+  const ar = logoImg.naturalWidth / logoImg.naturalHeight;
+  let dw = boxW, dh = boxW / ar;
+  if (dh > boxH) { dh = boxH; dw = boxH * ar; }
+  const dx = boxX + (boxW - dw)/2;
+  const dy = boxY + (boxH - dh)/2;
+  const rot = (g.area.rotation || 0) * Math.PI / 180;
+  if (rot) {
+    // merkez etrafında döndürerek çiz
+    const cx = dx + dw/2, cy = dy + dh/2;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.drawImage(logoImg, -dw/2, -dh/2, dw, dh);
+    ctx.restore();
+  } else {
+    ctx.drawImage(logoImg, dx, dy, dw, dh);
+  }
+  // 4) indir
+  const link = document.createElement("a");
+  link.download = `mockup-${g.name.toLowerCase().replace(/[^a-z0-9]/g,"")}.png`;
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+}
+
+function loadImg(src) {
+  return new Promise((resolve, reject) => {
+    const im = new Image();
+    im.crossOrigin = "anonymous";
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = src;
+  });
+}
+
+// DTF1 gibi: kıyafeti canvas'a çiz, beyaz pikselleri renkle çarp (gölgeleri koru)
+function paintGarment(idx, src) {
+  const canvas = document.getElementById("gc" + idx);
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+    if (activeColor === "#ffffff") return; // beyaz = orijinal
+    // Parlaklık tabanlı renklendirme (DTF1 yöntemi):
+    // her pikselin parlaklığını rengin o tonuna eşle. Beyaz→tam renk, gölge→koyu renk.
+    // Böylece yaka/kenar gibi açık yerler de düzgün boyanır.
+    const rgb = hexToRgb(activeColor);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 10) continue; // şeffaf piksel atla
+      // parlaklık (0-1): kumaşın gölge/ışık bilgisi
+      const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114) / 255;
+      // gölgeyi koru ama açık alanları tam renge çek (üs ile kontrast ayarı)
+      const shade = Math.pow(lum, 0.85);
+      d[i]   = rgb.r * shade;
+      d[i+1] = rgb.g * shade;
+      d[i+2] = rgb.b * shade;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  };
+  img.src = src;
+}
+
+function hexToRgb(hex) {
+  hex = hex.replace("#", "");
+  return {
+    r: parseInt(hex.substring(0, 2), 16),
+    g: parseInt(hex.substring(2, 4), 16),
+    b: parseInt(hex.substring(4, 6), 16),
+  };
+}
+
+function renderSteps(state) {
+  engineRows.innerHTML = STEP_DEFS.map((d) => {
+    const s = state[d.key] || { status: "idle" };
+    let icon = "";
+    if (s.status === "done") icon = "✓";
+    else if (s.status === "running") icon = "";
+    else if (s.status === "skipped") icon = "–";
+    else if (s.status === "error") icon = "!";
+    let right = "";
+    return `<div class="erow ${s.status}"><span class="dot">${icon}</span><span class="lbl">${s.label || d.label}</span>${right}</div>`;
+  }).join("");
+}
+
+processBtn.onclick = async () => {
+  if (!currentFile) return;
+  processBtn.disabled = true;
+  processBtn.textContent = "Wird optimiert…";
+  errbox.textContent = "";
+  const state = {};
+  STEP_DEFS.forEach((d) => state[d.key] = { status: "pending", label: d.label });
+  renderSteps(state);
+  try {
+    const form = new FormData();
+    form.append("image", currentFile);
+    const res = await fetch(API + "/api/process-stream", { method: "POST", body: form });
+    if (!res.ok) throw new Error("Sunucu hatası: " + res.status);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const blocks = buf.split("\n\n");
+      buf = blocks.pop();
+      for (const block of blocks) {
+        const evt = (block.match(/^event: (.+)$/m) || [])[1];
+        const dataRaw = (block.match(/^data: (.+)$/m) || [])[1];
+        if (!evt || !dataRaw) continue;
+        const data = JSON.parse(dataRaw);
+        if (evt === "step") { state[data.key] = { status: data.status, label: data.label }; renderSteps(state); }
+        else if (evt === "done") showResult(data);
+        else if (evt === "error") errbox.textContent = data.message;
+      }
+    }
+  } catch (err) {
+    errbox.textContent = err.message;
+  } finally {
+    processBtn.disabled = false;
+    processBtn.textContent = "Design optimieren";
+  }
+};
+
+function showResult(data) {
+  window._lastData = data; // vektör penceresi için sakla
+  resultSrc = API + data.resultUrl + "?t=" + Date.now();
+  previewImg.src = resultSrc;
+  renderProducts();
+  const dh = document.getElementById("dragHint");
+  if (dh) dh.style.display = "block";
+  renderQualityReport(data);
+  dimW.textContent = data.printSizeCm.width.toString().replace(".", ",") + " cm";
+  downloadBtn.href = API + data.resultUrl;
+  downloadBtn.style.display = "inline-grid";
+  processBtn.style.display = "none";
+  window._compareReady = true;
+
+  if (data.bgRemoved === false) {
+    errbox.innerHTML = "⚠️ Arka plan silinemedi: " + (data.bgMessage || "") +
+      "<br>Kalite işlemi yine de uygulandı.";
+  } else {
+    errbox.textContent = "";
+  }
+
+  // üst bar (Original anzeigen) göster - arka plan silindiyse
+  const topBar = document.getElementById("previewTopBar");
+  if (topBar) topBar.style.display = data.bgRemoved === false ? "none" : "flex";
+  // ana görsel = işlenmiş (arka planı temiz). Original tıklanınca ham gelir.
+  previewBox.dataset.mode = "processed";
+  previewBox.innerHTML = '<img id="previewImg" src="' + resultSrc + '" style="width:100%;display:block">';
+
+  // Vektör hazırsa: hem engine satırı hem büyük alt kartı göster
+  if (data.vectorizable) {
+    const label = data.vectorUrl ? "✨ Vektor-Version bereit" : "✨ Vektorisierbar";
+    engineRows.insertAdjacentHTML("beforeend",
+      `<div class="erow done" style="background:#f0fdfa;cursor:pointer" onclick="openVectorModal()">
+        <span class="dot">✓</span>
+        <span class="lbl">${label} <small style="color:#94a3b8">(Vergleiche Pixel und Vektor)</small></span>
+        <span class="right">Vergleichen</span>
+      </div>`);
+    // büyük alanın altındaki vektör kartı
+    const vc = document.getElementById("vectorCard");
+    const vimg = document.getElementById("vectorImg");
+    const vdl = document.getElementById("vectorDownload");
+    if (vc && vimg) {
+      const vsrc = data.vectorUrl ? API + data.vectorUrl + "?t=" + Date.now() : resultSrc;
+      vimg.src = vsrc;
+      if (vdl) vdl.href = data.vectorUrl ? API + data.vectorUrl : resultSrc;
+      vc.style.display = "block";
+    }
+  } else {
+    // fotoğraf/karmaşık görsel: vektör uygun değil, bilgi ver
+    engineRows.insertAdjacentHTML("beforeend",
+      `<div class="erow done" style="background:#f8fafc">
+        <span class="dot" style="background:#94a3b8">i</span>
+        <span class="lbl">Pixel-Version empfohlen <small style="color:#94a3b8">(Foto/komplexes Motiv — Vektor ungeeignet)</small></span>
+      </div>`);
+    const vc = document.getElementById("vectorCard");
+    if (vc) vc.style.display = "none";
+  }
+}
+
+// ── Vektör karşılaştırma penceresi (Pixel vs Vektor) ──
+window.openVectorModal = openVectorModal;
+function openVectorModal() {
+  const d = window._lastData;
+  if (!d) return;
+  const vektorSide = d.vectorUrl
+    ? `<img src="${API + d.vectorUrl}?t=${Date.now()}" alt="Vektor">`
+    : `<img src="${resultSrc}" style="filter:saturate(1.2) contrast(1.1)" alt="Vektor (önizleme)">`;
+  getModalContent().innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2>Pixel vs. Vektor</h2>
+    <div class="desc">Vergleiche Pixel- und Vektorgrafik. Vektor: gestochen scharf bei jeder Größe.</div>
+    <div class="section-title">GESAMTÜBERSICHT</div>
+    <div class="vs-grid">
+      <div class="vs-cell"><span class="vs-tag pixel">Pixel</span><img src="${resultSrc}" alt="Pixel"></div>
+      <div class="vs-cell"><span class="vs-tag vektor">Vektor</span>${vektorSide}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn outline" onclick="closeModal()">Pixelgrafik beibehalten</button>
+      <a class="btn primary" href="${d.vectorUrl ? API + d.vectorUrl : resultSrc}" download>Vektor verwenden</a>
+    </div>`;
+  getModalBg().classList.add("open");
+}
+
+// ── Büyük önizleme (mockup'a tıklayınca) ──
+function openBigPreview(idx) {
+  const g = GARMENTS[idx];
+  if (!g) return;
+  getModalContent().innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="big-preview">
+      <div class="mock-big" style="position:relative;background:#f1f5f9;border-radius:12px;overflow:hidden;aspect-ratio:1">
+        <canvas id="bigCanvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1"></canvas>
+        <img class="design" src="${resultSrc}"
+          style="position:absolute;top:${g.area.top}%;left:${g.area.left}%;width:${g.area.width}%;height:${g.area.height}%;object-fit:contain;z-index:3;transform:rotate(${g.area.rotation||0}deg)" alt="">
+      </div>
+      <h3>${g.name} — Empfohlene Größe: ${garmentCm(g)} cm</h3>
+    </div>`;
+  getModalBg().classList.add("open");
+  // büyük canvas'a renkli kıyafeti çiz
+  const canvas = document.getElementById("bigCanvas");
+  const ctx = canvas.getContext("2d");
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+    if (activeColor !== "#ffffff") {
+      const rgb = hexToRgb(activeColor);
+      const dt = ctx.getImageData(0,0,canvas.width,canvas.height);
+      const d = dt.data;
+      for (let i=0;i<d.length;i+=4){
+        if(d[i+3]<10)continue;
+        const lum = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114)/255;
+        const shade = Math.pow(lum, 0.85);
+        d[i]=rgb.r*shade; d[i+1]=rgb.g*shade; d[i+2]=rgb.b*shade;
+      }
+      ctx.putImageData(dt,0,0);
+    }
+  };
+  img.src = g.img;
+}
+window.openBigPreview = openBigPreview;
+
+function closeModal() { getModalBg().classList.remove("open"); const mc=getModalContent(); if(mc) mc.style.maxWidth=""; }
+window.closeModal = closeModal;
+document.addEventListener("click", function(e){ var mb=getModalBg(); if(mb && e.target===mb) closeModal(); });
+
+// Öncesi/sonrası: önizleme kutusunu kaydırmalı karşılaştırmaya çevir
+function showCompare() {
+  if (!window._compareReady) return;
+  previewBox.dataset.mode = "compare";
+  previewBox.innerHTML = `
+    <div style="width:100%">
+      <div class="compare" id="cmp">
+        <img src="${originalSrc}" alt="Original">
+        <div class="after" id="cmpAfter"><img src="${resultSrc}" alt="Bearbeitet"></div>
+        <div class="handle" id="cmpHandle"></div>
+      </div>
+      <div class="cmp-labels"><span>◀ VORHER (Original)</span><span>NACHHER (KI) ▶</span></div>
+    </div>`;
+  setupSlider();
+}
+
+window.toggleCompare = toggleCompare;
+
+// ── Zoom (büyüteç) modu: görsel üzerinde gezerken o bölgeyi büyütür ──
+let _zoomOn = false;
+// ── Tam ekran popup (işlenmiş logo, dama zemin, zoom'lu) ──
+window.openFullscreen = openFullscreen;
+function openFullscreen() {
+  if (!resultSrc) return;
+  const mc = getModalContent();
+  if (!mc) return;
+  mc.style.maxWidth = "1100px";
+  mc.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h2 style="margin:0;font-size:18px">Vollbild-Vorschau</h2>
+      <span onclick="closeModal()" style="cursor:pointer;font-size:22px;color:#94a3b8">✕</span>
+    </div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:12px">Bewege die Maus über das Bild zum Zoomen.</div>
+    <div id="fsWrap" style="position:relative;overflow:hidden;border-radius:12px;min-height:50vh;display:grid;place-items:center;
+      background-image:
+        linear-gradient(45deg,#e5e7eb 25%,transparent 25%),
+        linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),
+        linear-gradient(45deg,transparent 75%,#e5e7eb 75%),
+        linear-gradient(-45deg,transparent 75%,#e5e7eb 75%);
+      background-size:28px 28px;background-position:0 0,0 14px,14px -14px,-14px 0;background-color:#fff">
+      <img id="fsImg" src="${resultSrc}" style="max-width:100%;max-height:70vh;object-fit:contain;cursor:zoom-in;transition:transform .1s">
+    </div>`;
+  getModalBg().classList.add("open");
+  // zoom efekti
+  const wrap = document.getElementById("fsWrap");
+  const img = document.getElementById("fsImg");
+  if (img && wrap) {
+    const move = (e) => {
+      const r = wrap.getBoundingClientRect();
+      const p = e.touches ? e.touches[0] : e;
+      const x = ((p.clientX - r.left) / r.width) * 100;
+      const y = ((p.clientY - r.top) / r.height) * 100;
+      img.style.transformOrigin = `${Math.max(0,Math.min(100,x))}% ${Math.max(0,Math.min(100,y))}%`;
+      img.style.transform = "scale(3)";
+    };
+    const leave = () => { img.style.transform = "scale(1)"; };
+    wrap.addEventListener("mousemove", move);
+    wrap.addEventListener("mouseleave", leave);
+    wrap.addEventListener("touchmove", move, { passive: true });
+    wrap.addEventListener("touchend", leave);
+  }
+}
+
+window.toggleZoom = toggleZoom;
+function toggleZoom() {
+  _zoomOn = !_zoomOn;
+  const lbl = document.getElementById("zoomToggle");
+  const img = document.getElementById("previewImg");
+  if (!img) return;
+  if (_zoomOn) {
+    if (lbl) { lbl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>Zoom aktiv'; lbl.style.color = "#0f766e"; }
+    img.style.cursor = "zoom-in";
+    img.style.transition = "transform 0.1s";
+    const onMove = (e) => {
+      const r = img.getBoundingClientRect();
+      const p = e.touches ? e.touches[0] : e;
+      const x = ((p.clientX - r.left) / r.width) * 100;
+      const y = ((p.clientY - r.top) / r.height) * 100;
+      img.style.transformOrigin = `${Math.max(0,Math.min(100,x))}% ${Math.max(0,Math.min(100,y))}%`;
+      img.style.transform = "scale(2.5)";
+    };
+    const onLeave = () => { img.style.transform = "scale(1)"; };
+    img._zoomMove = onMove; img._zoomLeave = onLeave;
+    img.addEventListener("mousemove", onMove);
+    img.addEventListener("mouseleave", onLeave);
+    img.addEventListener("touchmove", onMove, { passive: true });
+    img.addEventListener("touchend", onLeave);
+  } else {
+    if (lbl) { lbl.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>Zoom'; lbl.style.color = "#14b8a6"; }
+    img.style.cursor = "";
+    img.style.transform = "scale(1)";
+    if (img._zoomMove) {
+      img.removeEventListener("mousemove", img._zoomMove);
+      img.removeEventListener("touchmove", img._zoomMove);
+    }
+    if (img._zoomLeave) {
+      img.removeEventListener("mouseleave", img._zoomLeave);
+      img.removeEventListener("touchend", img._zoomLeave);
+    }
+  }
+}
+function toggleCompare() {
+  if (!window._compareReady) return;
+  if (_zoomOn) toggleZoom(); // zoom açıksa kapat (img yenilenecek)
+  const toggle = document.getElementById("origToggle");
+  const eyeSvg = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  const statusEl = document.querySelector("#previewTopBar > span:first-child");
+  if (previewBox.dataset.mode === "original") {
+    // arka plansız (işlenmiş) hale dön
+    previewBox.dataset.mode = "processed";
+    previewBox.innerHTML = '<img id="previewImg" src="' + resultSrc + '" style="width:100%;display:block">';
+    if (toggle) toggle.innerHTML = eyeSvg + "Mit Hintergrund";
+    if (statusEl) { statusEl.textContent = "✓ Hintergrund entfernt"; statusEl.style.color = "#16a34a"; }
+  } else {
+    // arka planlı (ham orijinal) göster
+    previewBox.dataset.mode = "original";
+    previewBox.innerHTML = '<img id="previewImg" src="' + originalSrc + '" style="width:100%;display:block">';
+    if (toggle) toggle.innerHTML = eyeSvg + "Ohne Hintergrund";
+    if (statusEl) { statusEl.textContent = "Original (mit Hintergrund)"; statusEl.style.color = "#64748b"; }
+  }
+}
+
+function setupSlider() {
+  const cmp = $("cmp"), after = $("cmpAfter"), handle = $("cmpHandle");
+  if (!cmp) return;
+  const afterImg = after.querySelector("img");
+  // "sonrası" görseli HER ZAMAN kapsayıcının tam genişliğinde olmalı.
+  // .after kutusu daralsa bile görsel sabit kalır (sadece kırpılır) → hizasızlık olmaz.
+  const fix = () => {
+    const w = cmp.clientWidth;
+    afterImg.style.width = w + "px";
+    afterImg.style.height = "auto";
+  };
+  if (afterImg.complete) fix(); else afterImg.onload = fix;
+  window.addEventListener("resize", fix);
+  // başlangıçta ortada
+  after.style.width = "50%";
+  handle.style.left = "50%";
+  let dragging = false;
+  const move = (x) => {
+    const rect = cmp.getBoundingClientRect();
+    let pct = ((x - rect.left) / rect.width) * 100;
+    pct = Math.max(0, Math.min(100, pct));
+    after.style.width = pct + "%";
+    handle.style.left = pct + "%";
+  };
+  handle.onmousedown = (e) => { e.preventDefault(); dragging = true; };
+  window.addEventListener("mouseup", () => dragging = false);
+  window.addEventListener("mousemove", (e) => { if (dragging) move(e.clientX); });
+  cmp.ontouchmove = (e) => move(e.touches[0].clientX);
+}
+
+resetBtn.onclick = () => {
+  currentFile = null;
+  previewBox.dataset.mode = "";
+  previewBox.innerHTML = '<img id="previewImg" alt="Vorschau">';
+  dropzone.style.display = "block";
+  app.style.display = "none";
+  fileInput.value = "";
+};
+</script>
+<!-- Modal (pop-up): vektör karşılaştırma + büyük önizleme -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+</body>
+</html>
